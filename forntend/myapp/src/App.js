@@ -1,5 +1,6 @@
-import DynamicTable from "./component/table"
-
+ import Statistics from './component/statistics'
+ import TransactionsTable from './component/table'
+ import  BarChartComponent from './component/barchart'
 import './App.css'
 
 function App() {
@@ -7,7 +8,10 @@ function App() {
 
   return (
     <>
-      <DynamicTable />
+    <TransactionsTable/>
+      <Statistics/>
+      < BarChartComponent/>
+    
 
 
     </>

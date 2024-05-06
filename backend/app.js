@@ -1,11 +1,12 @@
 const express = require("express");
 const path = require("path");
 const axios = require("axios"); /*Importing the axios library*/
+const cors = require("cors")
 
 const { open } = require("sqlite");
 const sqlite3 = require("sqlite3");
 const app = express();
-
+app.use(cors())
 const dbPath = path.join(__dirname, "transation.db");
 
 let db = null;
@@ -58,46 +59,114 @@ const fetchAndInsert = async () => {
 
 fetchAndInsert();
 
+//API to list the all transactions
 
-// get all transactions
-app.get("/alltransactions",async(req,res)=>{
-    const {
-        
-        
-        order = "ASC",
-        order_by = "id",
-        search_q = "",
-      } = req.query;
+app.get("/allrecords", async (req, res) => {
+  const {
+    search_q = "",
+    page = 1
+  } = req.query;
 
-    const query=`select * from transation 
-    where title LIKE '%${search_q}%' or description LIKE '%${search_q}%' or price LIKE '%${search_q}%'
-    
-    ORDER BY ${order_by} ${order}
-    LIMIT 10 ;`
-    const result = await db.all(query);
-    //console.log(result)
-     res.send(result)
+
+  const offset = (page - 1) * 10;
+
+  const query = `
+    SELECT * 
+    FROM transation 
+    WHERE 
+         
+         (
+            title LIKE '%${search_q}%' 
+            OR price LIKE '%${search_q}%' 
+            OR description LIKE '%${search_q}%'
+        )
+        order by id 
+        LIMIT 10
+        OFFSET ${offset}
+        ;
+`;
+
+
+
+  const result = await db.all(query);
+  //console.log(result)
+  res.send(result)
 })
 
-app.get("/amount",async(req,res)=>{
-    const query=`select sum(price)  ,count(
-        CASE
-          WHEN sold="0" THEN 1
-        END
-      ) AS totalunsolditems,count(
-        CASE
-          WHEN sold="1" THEN 1
-        END
-      ) AS totalsolditems
-    from transation group by strftime('%m', dateofsale) having CAST(strftime('%m', dateofsale) AS INTEGER)=5; `
-    const result= await db.get(query)
-    res.send(result)
-    
 
+// get all transactions selected month
+app.get("/alltransactions", async (req, res) => {
+  const {
+
+    month = 3,
+
+    search_q = "",
+    page = 1
+  } = req.query;
+
+  const offset = (page - 1) * 10;
+ 
+  const query = `
+  SELECT * 
+  FROM transation 
+  WHERE 
+      CAST(strftime('%m', dateofsale) AS INTEGER) = ${month} 
+      AND (
+          title LIKE '%${search_q}%' 
+          OR price LIKE '%${search_q}%' 
+          OR description LIKE '%${search_q}%'
+      )
+  ORDER BY id
+  LIMIT 10
+  OFFSET ${offset};
+`;
+
+
+
+
+  const result = await db.all(query);
+  //console.log(result)
+  res.send({ result, total_pages: Math.ceil(result.length / 10) });
 })
 
-app.get("/av",async(req,res)=>{
-    const query=`select  
+
+
+app.get("/amount", async (req, res) => {
+  // Set default value of 3 for month if query parameter is not provided
+  const month = req.query.month || '3';
+  console.log(month)
+  // Check if the month parameter is invalid
+  if (isNaN(parseInt(month))) {
+    return res.status(400).send("Invalid month parameter");
+  }
+
+  try {
+    const query = `
+          SELECT 
+              SUM(price) AS total_selling_price,
+              COUNT(CASE WHEN sold = 0 THEN 1 END) AS total_unsold_items,
+              COUNT(CASE WHEN sold = 1 THEN 1 END) AS total_sold_items
+          FROM 
+              transation 
+          WHERE 
+              CAST(strftime('%m', dateofsale) AS INTEGER) = ${month}
+          GROUP BY 
+              strftime('%m', dateofsale);
+      `;
+
+    // Execute the SQL query with the month parameter
+    const result = await db.get(query);
+    res.send(result);
+  } catch (error) {
+    console.error('Error executing SQL query:', error);
+    res.status(500).send("Internal Server Error");
+  }
+});
+
+
+app.get("/av", async (req, res) => {
+  const month = req.query.month || '3';
+  const query = `select  
 count(CASE WHEN price<=100 THEN 1 end) AS "0-100",
 count(CASE WHEN price > 100 and price <=200 THEN 1 end) AS "101-200",
 count(case when price >200 and price<=300 then 1 end) as "201-300",
@@ -109,31 +178,39 @@ count(case when price>700 and price<=800 then 1 end) as "701-800",
 count(case when price>800 and price<=900 then 1 end) as "801-900",
 count(case when price>900 then 0 end) as "900-more"
     
-    from transation group by strftime('%m', dateofsale) having CAST(strftime('%m', dateofsale) AS INTEGER)=5;`
-    const result= await db.get(query)
-    res.send(result)
+    from transation group by strftime('%m', dateofsale) having CAST(strftime('%m', dateofsale) AS INTEGER)=${month};`
+  const result = await db.get(query)
+  console.log(result)
+  const transformedResult = Object.entries(result).map(([category, transaction_count]) => ({ category, transaction_count }));
+  res.send(transformedResult)
 
 
 })
 
 
-app.get("/b",async(req,res)=>{
-    const query=`SELECT
-    category,
-    count() AS c
+
+
+
+
+app.get("/b", async (req, res) => {
+  const query = `SELECT
+      category,
+      count(*) AS transaction_count
   FROM
-    transation
-    where CAST(strftime('%m', dateofsale) AS INTEGER)=5
+      transation
+  WHERE
+      CAST(strftime('%m', dateofsale) AS INTEGER) = 5
   GROUP BY
-    category
-    ;`
-    const result= await db.all(query)
-    res.send(result)
-    
-})
+      category;`;
 
+  const result = await db.all(query)
 
+  //   // Remove the "category" key from each object and rename it to the category name
+  const transformedResult = result.map(({ category, transaction_count }) => ({ [category]: transaction_count }));
 
+  //   // Send the response
+  res.json(transformedResult);
+});
 
 
 initializeDBAndServer();
