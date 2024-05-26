@@ -44,9 +44,9 @@ const Statistics = () => {
                 <option value="12">December</option>
             </select>
             <div style={{ backgroundColor: "orange", width: "80%", padding: '10px', marginLeft: "90px" }} >
-                <h1>total Selling Price: {total_selling_price}</h1>
-                <h1>total sold items: {total_sold_items}</h1>
-                <h1>total unsold items: {total_unsold_items}</h1>
+                <h1>Total Selling Price: {total_selling_price}</h1>
+                <h1>Total Sold Items: {total_sold_items}</h1>
+                <h1>Total Unsold Items: {total_unsold_items}</h1>
             </div>
         </div>
     );

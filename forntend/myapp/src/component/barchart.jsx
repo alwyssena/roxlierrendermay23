@@ -9,7 +9,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 const BarChartComponent = () => {
 
          const [va, setva] = useState([]);
-     const [selectedMonth, setSelectedMonth] = useState(2);
+     const [selectedMonth, setSelectedMonth] = useState(3);
 
 
 
